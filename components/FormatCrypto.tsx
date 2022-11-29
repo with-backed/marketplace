@@ -19,7 +19,7 @@ const FormatCrypto: FC<Props> = ({
 }) => {
   let logoUrl: string
   if (address === '0x68b7e050e6e2c7efe11439045c9d49813c1724b8') {
-    logoUrl = 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png?v=023'
+    logoUrl = '/phusdc.svg'
   } else {
     logoUrl = `${API_BASE}/redirect/currency/${address}/icon/v1`
   }
