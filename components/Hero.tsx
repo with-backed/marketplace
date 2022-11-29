@@ -89,11 +89,14 @@ const Hero: FC<Props> = ({ fallback, collectionId }) => {
 
   const isInTheWrongNetwork = Boolean(signer && activeChain?.id !== env.chainId)
 
+  console.log({ floor: collection?.floorAsk })
+
   const statsObj = {
     count: Number(collection?.tokenCount ?? 0),
     topOffer: collection?.topBid?.price?.amount?.decimal,
     topOfferCurrency: collection?.topBid?.price?.currency,
-    floor: collection?.floorAsk?.price?.amount?.native,
+    floor: collection?.floorAsk?.price?.amount?.decimal,
+    floorCurrency: collection?.floorAsk?.price?.currency,
     allTime: collection?.volume?.allTime,
     volumeChange: collection?.volumeChange?.['1day'],
     floorChange: collection?.floorSaleChange?.['1day'],

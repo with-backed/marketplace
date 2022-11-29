@@ -15,6 +15,7 @@ type Props = {
   topOffer: number | undefined
   topOfferCurrency: Currency
   floor: number | undefined
+  floorCurrency: Currency
   allTime: number | undefined
   volumeChange: number | undefined
   floorChange: number | undefined
@@ -39,7 +40,11 @@ const HeroStats: FC<{ stats: Props }> = ({ stats }) => {
       </Stat>
       <Stat name="floor">
         <h3 className="reservoir-h6 flex items-center justify-center gap-1 dark:text-white">
-          <FormatEth amount={stats.floor} maximumFractionDigits={2} />
+          <FormatCrypto
+            amount={stats.floor}
+            decimals={stats.floorCurrency?.decimals}
+            address={stats.floorCurrency?.contract}
+          />
           <PercentageChange value={stats.floorChange} />
         </h3>
       </Stat>
