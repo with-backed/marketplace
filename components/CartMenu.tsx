@@ -2,7 +2,7 @@ import { styled, keyframes } from '@stitches/react'
 import * as Popover from '@radix-ui/react-popover'
 import { FC, useState } from 'react'
 import { FaShoppingCart, FaTrashAlt } from 'react-icons/fa'
-import FormatEth from './FormatEth'
+import FormatNativeCrypto from './FormatNativeCrypto'
 import { useRecoilState, useRecoilValue } from 'recoil'
 import { Execute } from '@reservoir0x/reservoir-kit-client'
 import { Signer } from 'ethers'
@@ -15,6 +15,8 @@ import cartTokensAtom, {
   getCartTotalPrice,
 } from 'recoil/cart'
 import FormatCrypto from 'components/FormatCrypto'
+
+type UseBalanceToken = NonNullable<Parameters<typeof useBalance>['0']>['token']
 
 const slideDown = keyframes({
   '0%': { opacity: 0, transform: 'translateY(-10px)' },
@@ -47,7 +49,10 @@ const CartMenu: FC = () => {
   const reservoirClient = useReservoirClient()
   const { data: balance } = useBalance({
     addressOrName: address,
-    token: cartCurrency?.symbol !== 'ETH' ? cartCurrency?.contract : undefined,
+    token:
+      cartCurrency?.symbol !== 'ETH'
+        ? (cartCurrency?.contract as UseBalanceToken)
+        : undefined,
   })
 
   const execute = async (signer: Signer) => {

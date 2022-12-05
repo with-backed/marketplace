@@ -18,8 +18,10 @@ import { Collection } from 'types/reservoir'
 import { formatDollar } from 'lib/numbers'
 import useCoinConversion from 'hooks/useCoinConversion'
 import SwapCartModal from 'components/SwapCartModal'
-import ConnectWalletModal from 'components/ConnectWalletModal'
 import { FaShoppingCart } from 'react-icons/fa'
+import ConnectWalletButton from 'components/ConnectWalletButton'
+import useMounted from 'hooks/useMounted'
+import { useRouter } from 'next/router'
 
 const CHAIN_ID = process.env.NEXT_PUBLIC_CHAIN_ID
 const SOURCE_ID = process.env.NEXT_PUBLIC_SOURCE_ID
@@ -31,6 +33,7 @@ const CURRENCIES = process.env.NEXT_PUBLIC_LISTING_CURRENCIES
 type Props = {
   details: ReturnType<typeof useTokens>
   collection?: Collection
+  isOwner: boolean
 }
 
 type ListingCurrencies = ComponentPropsWithoutRef<
@@ -42,7 +45,9 @@ if (CURRENCIES) {
   listingCurrencies = JSON.parse(CURRENCIES)
 }
 
-const PriceData: FC<Props> = ({ details, collection }) => {
+const PriceData: FC<Props> = ({ details, collection, isOwner }) => {
+  const router = useRouter()
+  const isMounted = useMounted()
   const [cartTokens, setCartTokens] = useRecoilState(recoilCartTokens)
   const tokensMap = useRecoilValue(getTokensMap)
   const cartCurrency = useRecoilValue(getCartCurrency)
@@ -53,6 +58,10 @@ const PriceData: FC<Props> = ({ details, collection }) => {
   const [clearCartOpen, setClearCartOpen] = useState(false)
   const [cartToSwap, setCartToSwap] = useState<undefined | typeof cartTokens>()
   const account = useAccount()
+  const bidOpenState = useState(true)
+
+  const queryBidId = router.query.bidId as string
+  const deeplinkToAcceptBid = router.query.acceptBid === 'true'
 
   const token = details.data ? details.data[0] : undefined
 
@@ -69,6 +78,10 @@ const PriceData: FC<Props> = ({ details, collection }) => {
     token?.market?.floorAsk?.price?.currency?.symbol
   )
 
+  if (!isMounted) {
+    return null
+  }
+
   const topBidUsdPrice =
     topBidUsdConversion && token?.market?.topBid?.price?.amount?.decimal
       ? topBidUsdConversion * token?.market?.topBid?.price?.amount?.decimal
@@ -79,8 +92,17 @@ const PriceData: FC<Props> = ({ details, collection }) => {
       ? floorAskUsdConversion * token?.market?.floorAsk?.price?.amount?.decimal
       : null
 
-  const sourceName = token?.market?.floorAsk?.source?.name as string | undefined
-  const sourceDomain = token?.market?.floorAsk?.source?.domain as
+  const listSourceName = token?.market?.floorAsk?.source?.name as
+    | string
+    | undefined
+  const listSourceDomain = token?.market?.floorAsk?.source?.domain as
+    | string
+    | undefined
+
+  const offerSourceName = token?.market?.topBid?.source?.name as
+    | string
+    | undefined
+  const offerSourceDomain = token?.market?.topBid?.source?.domain as
     | string
     | undefined
 
@@ -88,38 +110,51 @@ const PriceData: FC<Props> = ({ details, collection }) => {
 
   if (
     reservoirClient?.source &&
-    sourceDomain &&
-    reservoirClient.source === sourceDomain
+    listSourceDomain &&
+    reservoirClient.source === listSourceDomain
   ) {
     isLocalListed = true
-  } else if (SOURCE_ID && sourceName && SOURCE_ID === sourceName) {
+  } else if (SOURCE_ID && listSourceName && SOURCE_ID === listSourceName) {
     isLocalListed = true
   }
 
-  const sourceLogo =
+  const listSourceLogo =
     isLocalListed && SOURCE_ICON
       ? SOURCE_ICON
-      : `${API_BASE}/redirect/sources/${sourceDomain || sourceName}/logo/v2`
+      : `${API_BASE}/redirect/sources/${
+          listSourceDomain || listSourceName
+        }/logo/v2`
 
-  const sourceRedirect = `${API_BASE}/redirect/sources/${
-    sourceDomain || sourceName
+  const offerSourceLogo = `${API_BASE}/redirect/sources/${
+    offerSourceDomain || offerSourceName
+  }/logo/v2`
+
+  const listSourceRedirect = `${API_BASE}/redirect/sources/${
+    listSourceDomain || listSourceName
+  }/tokens/${token?.token?.contract}:${token?.token?.tokenId}/link/v2`
+
+  const offerSourceRedirect = `${API_BASE}/redirect/sources/${
+    offerSourceDomain || offerSourceName
   }/tokens/${token?.token?.contract}:${token?.token?.tokenId}/link/v2`
 
   if (!CHAIN_ID) return null
 
-  const isOwner =
-    token?.token?.owner?.toLowerCase() === accountData?.address?.toLowerCase()
   const isTopBidder =
     accountData.isConnected &&
     token?.market?.topBid?.maker?.toLowerCase() ===
       accountData?.address?.toLowerCase()
-  const isListed = token?.market?.floorAsk?.price !== null
+  const isListed = token
+    ? token?.market?.floorAsk?.price !== null &&
+      token?.token?.kind !== 'erc1155'
+    : false
   const isInTheWrongNetwork = Boolean(signer && activeChain?.id !== +CHAIN_ID)
 
   const tokenId = token?.token?.tokenId
   const contract = token?.token?.contract
 
   const isInCart = Boolean(tokensMap[`${contract}:${tokenId}`])
+
+  const isSudoswapSource = token?.market?.floorAsk?.source?.name == 'sudoswap'
 
   const showAcceptOffer =
     token?.market?.topBid?.id !== null &&
@@ -135,15 +170,19 @@ const PriceData: FC<Props> = ({ details, collection }) => {
           <Price
             title="List Price"
             source={
-              sourceName && (
+              listSourceName && (
                 <a
                   target="_blank"
                   rel="noopener noreferrer"
-                  href={sourceRedirect}
+                  href={listSourceRedirect}
                   className="reservoir-body flex items-center gap-2 dark:text-white"
                 >
-                  on {sourceName}
-                  <img className="h-6 w-6" src={sourceLogo} alt="Source Logo" />
+                  on {listSourceName}
+                  <img
+                    className="h-6 w-6"
+                    src={listSourceLogo}
+                    alt="Source Logo"
+                  />
                 </a>
               )
             }
@@ -160,6 +199,23 @@ const PriceData: FC<Props> = ({ details, collection }) => {
           />
           <Price
             title="Top Offer"
+            source={
+              offerSourceName && (
+                <a
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  href={offerSourceRedirect}
+                  className="reservoir-body flex items-center gap-2 dark:text-white"
+                >
+                  on {offerSourceName}
+                  <img
+                    className="h-6 w-6"
+                    src={offerSourceLogo}
+                    alt="Source Logo"
+                  />
+                </a>
+              )
+            }
             price={
               <FormatCrypto
                 amount={token?.market?.topBid?.price?.amount?.decimal}
@@ -174,7 +230,9 @@ const PriceData: FC<Props> = ({ details, collection }) => {
         </div>
         <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2">
           {account.isDisconnected ? (
-            <ConnectWalletModal />
+            <ConnectWalletButton className="w-full">
+              <span>Connect Wallet</span>
+            </ConnectWalletButton>
           ) : (
             <>
               {isOwner && (
@@ -231,6 +289,12 @@ const PriceData: FC<Props> = ({ details, collection }) => {
                     </button>
                   ) : null
                 }
+                openState={
+                  isOwner && (queryBidId || deeplinkToAcceptBid)
+                    ? bidOpenState
+                    : undefined
+                }
+                bidId={queryBidId}
                 collectionId={collection?.id}
                 tokenId={token?.token?.tokenId}
                 onClose={() => details && details.mutate()}
@@ -320,7 +384,7 @@ const PriceData: FC<Props> = ({ details, collection }) => {
           </button>
         )}
 
-        {!isInCart && !isOwner && isListed && (
+        {!isInCart && !isOwner && isListed && !isSudoswapSource && (
           <button
             disabled={!token?.market?.floorAsk?.price}
             onClick={() => {
